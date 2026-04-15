@@ -16,11 +16,13 @@ canvas.height = 600;
 let gameState = 'START'; // START, PLAYING, GAMEOVER
 let score = 0;
 let highscore = localStorage.getItem('neonDefenderHighscore') || 0;
+let scoreHistory = JSON.parse(localStorage.getItem('neonDefenderHistory')) || [];
 let level = 1;
 let frames = 0;
 
 // Update Highscore UI
 highscoreEl.innerText = highscore;
+const scoreListEl = document.getElementById('score-list');
 
 // Entities
 let player;
@@ -362,13 +364,30 @@ function initGame() {
 function gameOver() {
     gameState = 'GAMEOVER';
     finalScoreEl.innerText = score;
-    gameOverScreen.classList.remove('hidden');
     
+    // Manage Leaderboard
+    scoreHistory.push(score);
+    scoreHistory.sort((a, b) => b - a);
+    scoreHistory = scoreHistory.slice(0, 5); // Top 5
+    localStorage.setItem('neonDefenderHistory', JSON.stringify(scoreHistory));
+
     if (score > highscore) {
         highscore = score;
         localStorage.setItem('neonDefenderHighscore', highscore);
         highscoreEl.innerText = highscore;
     }
+
+    renderLeaderboard();
+    gameOverScreen.classList.remove('hidden');
+}
+
+function renderLeaderboard() {
+    scoreListEl.innerHTML = '';
+    scoreHistory.forEach((s, i) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>#${i + 1}</span> <span>${s}</span>`;
+        scoreListEl.appendChild(li);
+    });
 }
 
 // Game Loop

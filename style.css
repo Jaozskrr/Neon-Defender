@@ -138,6 +138,47 @@ h1 {
     font-size: 0.7rem;
 }
 
+.game-over-layout {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 50px;
+    width: 90%;
+}
+
+.game-over-info {
+    flex: 1;
+}
+
+.leaderboard {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.5);
+    border-left: 2px solid var(--neon-pink);
+    padding: 20px;
+    text-align: left;
+    max-width: 300px;
+}
+
+.leaderboard h3 {
+    font-size: 0.9rem;
+    color: var(--neon-pink);
+    margin-bottom: 15px;
+    font-family: 'Press Start 2P', cursive;
+}
+
+#score-list {
+    list-style: none;
+    font-size: 0.8rem;
+    color: #fff;
+}
+
+#score-list li {
+    padding: 8px 0;
+    border-bottom: 1px border var(--glass-bg);
+    display: flex;
+    justify-content: space-between;
+}
+
 .blink {
     animation: blink 1s infinite;
     font-family: 'Press Start 2P', cursive;
@@ -149,6 +190,11 @@ h1 {
 @keyframes blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
+}
+
+#score-list li:first-child {
+    color: gold;
+    text-shadow: 0 0 5px gold;
 }
 
 /* CRT EFFECTS */
