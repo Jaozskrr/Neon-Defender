@@ -114,18 +114,22 @@ class Player {
             this.shieldTime--;
             if (this.shieldTime <= 0) {
                 this.hasShield = false;
-                this.updatePowerupHUD();
             }
         }
 
         if (this.tripleShotTime > 0) {
             this.tripleShotTime--;
-            if (this.tripleShotTime <= 0) this.updatePowerupHUD();
         }
 
         if (this.laserTime > 0) {
             this.laserTime--;
-            if (this.laserTime <= 0) this.updatePowerupHUD();
+        }
+
+        // Always update HUD if anything is active to show countdown, or clear it when finished
+        if (this.hasShield || this.tripleShotTime > 0 || this.laserTime > 0) {
+            this.updatePowerupHUD();
+        } else if (powerupEl.innerText !== '') {
+            powerupEl.innerText = '';
         }
     }
 
@@ -302,31 +306,24 @@ function spawnEnemy() {
     enemies.push(new Enemy(x, y, 'chaser'));
 }
 
+function getRandomPowerupType() {
+    const roll = Math.random() * 86;
+    if (roll < 1) return 'bomb';
+    if (roll < 11) return 'laser';
+    if (roll < 36) return 'triple';
+    return 'shield';
+}
+
 function handleEnemyDeath(enemy, index) {
     createExplosion(enemy.x, enemy.y, enemy.color);
     enemies.splice(index, 1);
     score += 100;
     scoreEl.innerText = score;
 
-    // Powerup Drop Logic
-    const roll = Math.random() * 100;
-    if (roll < 1) {
-        powerups.push(new Powerup(enemy.x, enemy.y, 'bomb'));
-    } else if (roll < 11) {
-        powerups.push(new Powerup(enemy.x, enemy.y, 'laser'));
-    } else if (roll < 36) {
-        powerups.push(new Powerup(enemy.x, enemy.y, 'triple'));
-    } else if (roll < 86) {
-        // Here we can decide if we want 86% total drop rate or just relative
-        // Standardizing to a overall 20% drop chance to keep game balanced
-        // but following the requested distribution
-        if (Math.random() < 0.2) {
-             const distRoll = Math.random() * 86;
-             if (distRoll < 1) powerups.push(new Powerup(enemy.x, enemy.y, 'bomb'));
-             else if (distRoll < 11) powerups.push(new Powerup(enemy.x, enemy.y, 'laser'));
-             else if (distRoll < 36) powerups.push(new Powerup(enemy.x, enemy.y, 'triple'));
-             else powerups.push(new Powerup(enemy.x, enemy.y, 'shield'));
-        }
+    // Powerup Drop Logic (5% total drop chance)
+    if (Math.random() < 0.05) {
+        const type = getRandomPowerupType();
+        powerups.push(new Powerup(enemy.x, enemy.y, type));
     }
 }
 
@@ -356,6 +353,7 @@ function initGame() {
     powerups = [];
     particles = [];
     scoreEl.innerText = '0';
+    powerupEl.innerText = '';
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
     hud.classList.remove('hidden');
@@ -407,7 +405,8 @@ function animate() {
         if (frames % 1000 === 0) {
             level++;
             // Spawn Powerup
-            powerups.push(new Powerup(Math.random() * canvas.width, Math.random() * canvas.height));
+            const type = getRandomPowerupType();
+            powerups.push(new Powerup(Math.random() * canvas.width, Math.random() * canvas.height, type));
         }
 
         player.update();
