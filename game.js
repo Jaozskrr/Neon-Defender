@@ -493,29 +493,41 @@ window.addEventListener('keydown', (e) => {
         if (gameState === 'START' || gameState === 'GAMEOVER') {
             initGame();
         } else if (gameState === 'PLAYING') {
-            const bulletSpeed = 10;
-            const dx = mouse.x - player.x;
-            const dy = mouse.y - player.y;
-            const mag = Math.sqrt(dx * dx + dy * dy);
-            
-            const bvx = (dx / mag) * bulletSpeed;
-            const bvy = (dy / mag) * bulletSpeed;
-
-            if (player.laserTime > 0) {
-                bullets.push(new Laser(player.x, player.y, player.angle));
-            } else if (player.tripleShotTime > 0) {
-                // Main shot
-                bullets.push(new Bullet(player.x, player.y, bvx, bvy));
-                // Side shot 1 (+15 deg)
-                const s1 = rotateVector(bvx, bvy, 0.2);
-                bullets.push(new Bullet(player.x, player.y, s1.x, s1.y));
-                // Side shot 2 (-15 deg)
-                const s2 = rotateVector(bvx, bvy, -0.2);
-                bullets.push(new Bullet(player.x, player.y, s2.x, s2.y));
-            } else {
-                bullets.push(new Bullet(player.x, player.y, bvx, bvy));
-            }
+            shoot();
         }
+    }
+});
+
+function shoot() {
+    const bulletSpeed = 10;
+    const dx = mouse.x - player.x;
+    const dy = mouse.y - player.y;
+    const mag = Math.sqrt(dx * dx + dy * dy);
+    
+    if (mag === 0) return;
+
+    const bvx = (dx / mag) * bulletSpeed;
+    const bvy = (dy / mag) * bulletSpeed;
+
+    if (player.laserTime > 0) {
+        bullets.push(new Laser(player.x, player.y, player.angle));
+    } else if (player.tripleShotTime > 0) {
+        // Main shot
+        bullets.push(new Bullet(player.x, player.y, bvx, bvy));
+        // Side shot 1 (+15 deg)
+        const s1 = rotateVector(bvx, bvy, 0.2);
+        bullets.push(new Bullet(player.x, player.y, s1.x, s1.y));
+        // Side shot 2 (-15 deg)
+        const s2 = rotateVector(bvx, bvy, -0.2);
+        bullets.push(new Bullet(player.x, player.y, s2.x, s2.y));
+    } else {
+        bullets.push(new Bullet(player.x, player.y, bvx, bvy));
+    }
+}
+
+window.addEventListener('mousedown', (e) => {
+    if (gameState === 'PLAYING') {
+        shoot();
     }
 });
 
