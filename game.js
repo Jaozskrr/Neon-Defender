@@ -46,6 +46,8 @@ class Player {
         this.color = '#39ff14';
         this.hasShield = false;
         this.shieldTime = 0;
+        this.tripleShotTime = 0;
+        this.laserTime = 0;
         this.angle = 0;
     }
 
@@ -110,11 +112,27 @@ class Player {
             this.shieldTime--;
             if (this.shieldTime <= 0) {
                 this.hasShield = false;
-                powerupEl.innerText = '';
-            } else {
-                powerupEl.innerText = `SHIELD: ${(this.shieldTime / 60).toFixed(1)}s`;
+                this.updatePowerupHUD();
             }
         }
+
+        if (this.tripleShotTime > 0) {
+            this.tripleShotTime--;
+            if (this.tripleShotTime <= 0) this.updatePowerupHUD();
+        }
+
+        if (this.laserTime > 0) {
+            this.laserTime--;
+            if (this.laserTime <= 0) this.updatePowerupHUD();
+        }
+    }
+
+    updatePowerupHUD() {
+        let status = [];
+        if (this.hasShield) status.push(`SHIELD: ${(this.shieldTime / 60).toFixed(1)}s`);
+        if (this.tripleShotTime > 0) status.push(`TRIPLE: ${(this.tripleShotTime / 60).toFixed(1)}s`);
+        if (this.laserTime > 0) status.push(`LASER: ${(this.laserTime / 60).toFixed(1)}s`);
+        powerupEl.innerText = status.join(' | ');
     }
 }
 
@@ -135,6 +153,36 @@ class Bullet {
         ctx.fill();
         ctx.shadowBlur = 10;
         ctx.shadowColor = '#fff';
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+    }
+}
+
+class Laser {
+    constructor(x, y, angle) {
+        this.x = x;
+        this.y = y;
+        this.angle = angle;
+        this.vx = Math.cos(angle - Math.PI / 2) * 20;
+        this.vy = Math.sin(angle - Math.PI / 2) * 20;
+        this.radius = 4;
+        this.color = '#ff0000';
+    }
+
+    draw() {
+        ctx.save();
+        ctx.beginPath();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        ctx.rect(-2, -20, 4, 40);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
+        ctx.restore();
     }
 
     update() {
@@ -206,24 +254,38 @@ class Particle {
 }
 
 class Powerup {
-    constructor(x, y) {
+    constructor(x, y, type) {
         this.x = x;
         this.y = y;
-        this.radius = 10;
-        this.color = '#00f3ff';
+        this.type = type; // 'shield', 'triple', 'laser', 'bomb'
+        this.radius = 12;
+        this.colors = {
+            'shield': '#00f3ff',
+            'triple': '#39ff14',
+            'laser': '#ff0000',
+            'bomb': '#ffff00'
+        };
+        this.labels = {
+            'shield': 'S',
+            'triple': '3',
+            'laser': 'L',
+            'bomb': 'B'
+        };
     }
 
     draw() {
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = this.color;
+        ctx.strokeStyle = this.colors[this.type];
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.font = '10px Orbitron';
-        ctx.fillStyle = this.color;
-        ctx.fillText('S', this.x, this.y);
+        ctx.font = 'bold 12px Orbitron';
+        ctx.fillStyle = this.colors[this.type];
+        ctx.fillText(this.labels[this.type], this.x, this.y);
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.colors[this.type];
     }
 }
 
@@ -236,6 +298,44 @@ function spawnEnemy() {
     else { x = canvas.width + 20; y = Math.random() * canvas.height; }
     
     enemies.push(new Enemy(x, y, 'chaser'));
+}
+
+function handleEnemyDeath(enemy, index) {
+    createExplosion(enemy.x, enemy.y, enemy.color);
+    enemies.splice(index, 1);
+    score += 100;
+    scoreEl.innerText = score;
+
+    // Powerup Drop Logic
+    const roll = Math.random() * 100;
+    if (roll < 1) {
+        powerups.push(new Powerup(enemy.x, enemy.y, 'bomb'));
+    } else if (roll < 11) {
+        powerups.push(new Powerup(enemy.x, enemy.y, 'laser'));
+    } else if (roll < 36) {
+        powerups.push(new Powerup(enemy.x, enemy.y, 'triple'));
+    } else if (roll < 86) {
+        // Here we can decide if we want 86% total drop rate or just relative
+        // Standardizing to a overall 20% drop chance to keep game balanced
+        // but following the requested distribution
+        if (Math.random() < 0.2) {
+             const distRoll = Math.random() * 86;
+             if (distRoll < 1) powerups.push(new Powerup(enemy.x, enemy.y, 'bomb'));
+             else if (distRoll < 11) powerups.push(new Powerup(enemy.x, enemy.y, 'laser'));
+             else if (distRoll < 36) powerups.push(new Powerup(enemy.x, enemy.y, 'triple'));
+             else powerups.push(new Powerup(enemy.x, enemy.y, 'shield'));
+        }
+    }
+}
+
+function activateBomb() {
+    createExplosion(canvas.width / 2, canvas.height / 2, '#ffff00');
+    enemies.forEach(enemy => {
+        createExplosion(enemy.x, enemy.y, enemy.color);
+        score += 50;
+    });
+    enemies = [];
+    scoreEl.innerText = score;
 }
 
 function createExplosion(x, y, color) {
@@ -316,10 +416,7 @@ function animate() {
             const distToPlayer = Math.hypot(player.x - enemy.x, player.y - enemy.y);
             if (distToPlayer < player.radius + enemy.radius) {
                 if (player.hasShield) {
-                    enemies.splice(i, 1);
-                    createExplosion(enemy.x, enemy.y, enemy.color);
-                    score += 50;
-                    scoreEl.innerText = score;
+                    handleEnemyDeath(enemy, i);
                 } else {
                     createExplosion(player.x, player.y, player.color);
                     gameOver();
@@ -332,12 +429,9 @@ function animate() {
                 const bullet = bullets[j];
                 const dist = Math.hypot(bullet.x - enemy.x, bullet.y - enemy.y);
                 if (dist < bullet.radius + enemy.radius) {
-                    createExplosion(enemy.x, enemy.y, enemy.color);
-                    enemies.splice(i, 1);
+                    handleEnemyDeath(enemy, i);
                     bullets.splice(j, 1);
-                    score += 100;
-                    scoreEl.innerText = score;
-                    break; // Enemy destroyed, next enemy
+                    break; 
                 }
             }
         }
@@ -348,8 +442,17 @@ function animate() {
             pu.draw();
             const dist = Math.hypot(player.x - pu.x, player.y - pu.y);
             if (dist < player.radius + pu.radius) {
-                player.hasShield = true;
-                player.shieldTime = 600; // 10 seconds
+                if (pu.type === 'shield') {
+                    player.hasShield = true;
+                    player.shieldTime = 600;
+                } else if (pu.type === 'triple') {
+                    player.tripleShotTime = 600;
+                } else if (pu.type === 'laser') {
+                    player.laserTime = 400;
+                } else if (pu.type === 'bomb') {
+                    activateBomb();
+                }
+                player.updatePowerupHUD();
                 powerups.splice(i, 1);
             }
         }
@@ -372,19 +475,39 @@ window.addEventListener('keydown', (e) => {
         if (gameState === 'START' || gameState === 'GAMEOVER') {
             initGame();
         } else if (gameState === 'PLAYING') {
-            // Mechanic 2: Laser Shooting (MOUSE AIM)
             const bulletSpeed = 10;
             const dx = mouse.x - player.x;
             const dy = mouse.y - player.y;
             const mag = Math.sqrt(dx * dx + dy * dy);
             
-            let bvx = (dx / mag) * bulletSpeed;
-            let bvy = (dy / mag) * bulletSpeed;
-            
-            bullets.push(new Bullet(player.x, player.y, bvx, bvy));
+            const bvx = (dx / mag) * bulletSpeed;
+            const bvy = (dy / mag) * bulletSpeed;
+
+            if (player.laserTime > 0) {
+                bullets.push(new Laser(player.x, player.y, player.angle));
+            } else if (player.tripleShotTime > 0) {
+                // Main shot
+                bullets.push(new Bullet(player.x, player.y, bvx, bvy));
+                // Side shot 1 (+15 deg)
+                const s1 = rotateVector(bvx, bvy, 0.2);
+                bullets.push(new Bullet(player.x, player.y, s1.x, s1.y));
+                // Side shot 2 (-15 deg)
+                const s2 = rotateVector(bvx, bvy, -0.2);
+                bullets.push(new Bullet(player.x, player.y, s2.x, s2.y));
+            } else {
+                bullets.push(new Bullet(player.x, player.y, bvx, bvy));
+            }
         }
     }
 });
+
+function rotateVector(x, y, angle) {
+    return {
+        x: x * Math.cos(angle) - y * Math.sin(angle),
+        y: x * Math.sin(angle) + y * Math.cos(angle)
+    };
+}
+
 
 window.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
